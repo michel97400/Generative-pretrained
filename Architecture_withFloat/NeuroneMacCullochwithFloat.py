@@ -16,6 +16,7 @@ class McCullochPittsFloat:
         
         Args:
             weights: liste des poids (floats)
+            bias: biais (float)
         """
         self.weights = np.random.randn(n_inputs) * np.sqrt(1/n_inputs)
         self.bias = np.random.randn() # Remplace le threshold
@@ -26,7 +27,7 @@ class McCullochPittsFloat:
         """Fonction ReLU"""
         return max(0.0, x - self.bias)
     
-    def activate(self, inputs):
+    def activate(self, inputs, dropout_rate=0.2):
         """
         Calcule la sortie du neurone
         
@@ -36,13 +37,14 @@ class McCullochPittsFloat:
         Returns:
             sortie après application de la fonction d'activation
         """
+        if np.random.random() < dropout_rate:
+            return 0.0  # Neurone temporairement inactif
+    
         inputs = np.array(inputs, dtype=float)
-        
-        # Calcul de la somme pondérée
         weighted_sum = np.dot(inputs, self.weights)
         return self.relu_function(weighted_sum)
     
-    def train(self, inputs, target, learning_rate=0.01):
+    def train(self, inputs, target, learning_rate=0.01, dropout_rate=0.2):
         """
         Entraîne le neurone avec une entrée et une cible
         
@@ -52,7 +54,7 @@ class McCullochPittsFloat:
             learning_rate: taux d'apprentissage
         """
         inputs = np.array(inputs, dtype=float)
-        output = self.activate(inputs)
+        output = self.activate(inputs, dropout_rate=dropout_rate)
         
         # Calcul de l'erreur
         error = target - output
