@@ -24,8 +24,8 @@ class McCullochPittsFloat:
     
     
     def relu_function(self, x):
-        """Fonction ReLU"""
-        return max(0.0, x - self.bias)
+        return np.maximum(0.0, x - self.bias)  # np.maximum applique le relu élément par élément
+
     
     def activate(self, inputs, dropout_rate=0.2):
         """

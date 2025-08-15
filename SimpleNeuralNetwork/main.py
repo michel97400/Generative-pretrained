@@ -1,66 +1,60 @@
 from NeuralNetwork import SimpleNeuralNetwork
 import numpy as np
 
-# Fonction de normalisation
-def normalize_data(data, min_val, max_val):
-    return (data - min_val) / (max_val - min_val)
+import sys
+import os
+# Ajouter le dossier parent au path Python
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# Données d'entraînement étendues
-training_data = [
-    ([20.0, 65.0, 10.0], [22.0, 15.0]),
-    ([22.0, 70.0, 15.0], [23.0, 16.0]),
-    ([19.0, 80.0, 20.0], [20.0, 14.0]),
-    ([21.0, 75.0, 12.0], [22.5, 15.5]),
-    ([23.0, 60.0, 8.0], [24.0, 17.0]),
-    ([18.0, 85.0, 25.0], [19.0, 13.0])
+from Tokenizer.Tokenizer_word import TokenizerWithEmbedding
+
+
+# === Données ===
+phrases = [
+    "Le chat mange",
+    "Le chien dort"
 ]
 
-# Normalisation des données
-temp_min, temp_max = 0, 40  # Plage de température
-humidity_min, humidity_max = 0, 100  # Plage d'humidité
-wind_min, wind_max = 0, 50  # Plage de vent
+# === Tokenisation et vocabulaire ===
+tokenizer = TokenizerWithEmbedding(embedding_dim=4)
+for phrase in phrases:
+    tokenizer.tokenize(phrase)
+tokenizer.create_embeddings()
 
-# Normaliser les données d'entraînement
-normalized_data = []
-for inputs, targets in training_data:
-    norm_inputs = [
-        normalize_data(inputs[0], temp_min, temp_max),
-        normalize_data(inputs[1], humidity_min, humidity_max),
-        normalize_data(inputs[2], wind_min, wind_max)
-    ]
-    norm_targets = [
-        normalize_data(targets[0], temp_min, temp_max),
-        normalize_data(targets[1], temp_min, temp_max)
-    ]
-    normalized_data.append((norm_inputs, norm_targets))
+# === Création des paires (input_emb, target_onehot) ===
+training_data = []
+vocab_size = len(tokenizer.word_to_id)
 
-# Créer et entraîner le réseau
-network = SimpleNeuralNetwork(n_inputs=3, n_neurons=2)
+for phrase in phrases:
+    tokens = tokenizer.tokenize(phrase)
+    for i in range(len(tokens) - 1):
+        inp_emb = tokenizer.get_embedding(tokens[i])
+        target_onehot = np.zeros(vocab_size)
+        target_onehot[tokens[i+1]] = 1
+        training_data.append((inp_emb, target_onehot))
 
-print("Entraînement du modèle...")
-for epoch in range(1000):  # Plus d'epochs
+# === Création du réseau ===
+net = SimpleNeuralNetwork(n_inputs=4, n_neurons=vocab_size)
+
+# === Entraînement ===
+for epoch in range(1000):
     total_error = 0
-    for inputs, targets in normalized_data:
-        outputs = network.train(inputs, targets, learning_rate=0.1)  # Learning rate plus élevé
-        error = sum(abs(t-o) for t, o in zip(targets, outputs))
-        total_error += error
-    
+    for emb, target in training_data:
+        outputs = net.train(emb, target, learning_rate=0.05)
+        total_error += sum(abs(target - outputs))
     if epoch % 100 == 0:
-        print(f"Epoch {epoch}: Erreur moyenne = {total_error/len(normalized_data):.4f}")
+        print(f"Epoch {epoch} - Erreur: {total_error:.4f}")
 
-# Test avec nouvelles données
-new_data = [21.0, 68.0, 12.0]
-norm_new_data = [
-    normalize_data(new_data[0], temp_min, temp_max),
-    normalize_data(new_data[1], humidity_min, humidity_max),
-    normalize_data(new_data[2], wind_min, wind_max)
-]
+# === Génération ===
+start_word = "le"
+start_token = tokenizer.word_to_id[start_word]
+current_emb = tokenizer.get_embedding(start_token)
 
-predictions = network.forward(norm_new_data)
-# Dénormaliser les prédictions
-pred_max = predictions[0] * (temp_max - temp_min) + temp_min
-pred_min = predictions[1] * (temp_max - temp_min) + temp_min
+generated = [start_word]
+for _ in range(5):
+    outputs = net.forward(current_emb)
+    next_token = int(np.argmax(outputs))
+    generated.append(tokenizer.id_to_word[next_token])
+    current_emb = tokenizer.get_embedding(next_token)
 
-print("\nTest du modèle:")
-print(f"Entrées: Température hier={new_data[0]}°C, Humidité={new_data[1]}%, Vent={new_data[2]}km/h")
-print(f"Prédictions: Temp max={pred_max:.1f}°C, Temp min={pred_min:.1f}°C")
+print("\nPhrase générée:", " ".join(generated))
